@@ -24,7 +24,7 @@ def paddingOracleAttack(ciphertext_string, L):
 			for j in range(num_bytes - L - b, num_bytes - L):
 				ciphertext_bytearray[j] = ciphertext_bytearray[j] ^ (b + 1); #b^~ = b XOR (b+1)
 			message_bytearray[num_bytes - i] = modifyByte(ciphertext_bytearray, num_bytes - L - b) ^ (b + 1) #see modifyByte function
-			b++
+			b += 1
 		b = 1
 		ciphertext_bytearray = ciphertext_bytearray[:-L]
 		num_bytes = len(ciphertext_bytearray)	
