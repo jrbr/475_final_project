@@ -1,3 +1,8 @@
+'''
+This implementation is a modifed version of the one found at
+https://gist.github.com/forkd/168c9d74b988391e702aac5f4aa69e41
+'''
+
 from hashlib import md5
 from base64 import b64decode
 from base64 import b64encode
@@ -5,6 +10,7 @@ from Crypto import Random
 from Crypto.Cipher import AES
 import hmac
 import time
+
 
 
 # Padding for the input string --not
@@ -23,14 +29,17 @@ class AESCipher:
     Tested under Python 3 and PyCrypto 2.6.1.
     """
 
-    def __init__(self, enc_key, mac_key):
+    def __init__(self, enc_key, mac_key, hide_errors=False):
         self.enc_key = md5(enc_key.encode('utf8')).hexdigest()
         self.mac_key = md5(mac_key.encode('utf8')).digest()
+        self.PaddingError = -2
+        self.MACError = -1
+        self.GenError = -3
+        self.hide_errors = hide_errors
 
 
     def paddingError(self, ciphertext_string):
         x = ciphertext_string[-1]
-        #print("pad: {}".format(x))
         if x == 0:
             return True
 
@@ -51,7 +60,6 @@ class AESCipher:
         return iv + cipher.encrypt(pad(raw2))
 
     def decrypt(self, enc):
-        start = time.time()
         iv = enc[:16]
         dummy = enc[16:]
         cipher = AES.new(self.enc_key, AES.MODE_CBC, iv)
@@ -61,36 +69,34 @@ class AESCipher:
         #decrypt the ciphertext
         d = cipher.decrypt(dummy)
 
-        #print(d)
         #check if a padding error occured, and print an error message if so.
         if self.paddingError(d) == True:
             #print("ERROR: PADDING ERROR OCCURED")
             end = time.time()
             #print("Padding error time: {}".format(end-start))
-            return -2
+            if self.hide_errors:
+                return self.GenError
+            return self.PaddingError
         #unpad the the decrypted ciphertext
         
-        #print('here')
         unpadded = unpad(d)
-        #print(d)
-        #print(unpadded)
+
         #grab the HMAC appended to the end of it.
         HMAC1 = unpadded[-32:]
         #find the length of the plaintext and separate the plaintext from the HMAC
         length = len(unpadded)-32
         plaintext = unpadded[:length]
         HMAC2 = hmac.new(self.mac_key, plaintext, digestmod = md5).hexdigest().encode('utf-8')
-        #print("hmac1: {}".format(HMAC1))
-        #print("hmac2: {}".format(HMAC2))
+
         #Compare HMACS
         if hmac.compare_digest(HMAC1, HMAC2):
             #print("HMACS ARE UNTAMPERED")
             return plaintext.decode('utf-8')
         else:
             #print("HMACS ARE COMPROMISED")
-            end = time.time()
-            #print("HMAC error time: {}".format( end-start))
-            return -1
+            if self.hide_errors:
+                return self.GenError
+            return self.MACError
 
 
 ##
