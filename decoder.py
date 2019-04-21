@@ -56,7 +56,8 @@ class AESCipher:
         cipher = AES.new(self.enc_key, AES.MODE_CBC, iv)
         cipherHMAC = hmac.new(self.mac_key, raw.encode('utf-8'), digestmod = md5)
         raw2 = raw + cipherHMAC.hexdigest()
-        print("plaintext with HMAC and Padding: {}".format(pad(raw2)))
+        #print("plaintext with HMAC and Padding: {}".format(pad(raw2)))
+        print(len(pad(raw2)))
         return iv + cipher.encrypt(pad(raw2))
 
     def decrypt(self, enc):
@@ -68,11 +69,9 @@ class AESCipher:
 
         #decrypt the ciphertext
         d = cipher.decrypt(dummy)
-
         #check if a padding error occured, and print an error message if so.
         if self.paddingError(d) == True:
             #print("ERROR: PADDING ERROR OCCURED")
-            end = time.time()
             #print("Padding error time: {}".format(end-start))
             if self.hide_errors:
                 return self.GenError
@@ -81,6 +80,7 @@ class AESCipher:
         
         unpadded = unpad(d)
 
+        #print("padding checked")
         #grab the HMAC appended to the end of it.
         HMAC1 = unpadded[-32:]
         #find the length of the plaintext and separate the plaintext from the HMAC
@@ -88,6 +88,7 @@ class AESCipher:
         plaintext = unpadded[:length]
         HMAC2 = hmac.new(self.mac_key, plaintext, digestmod = md5).hexdigest().encode('utf-8')
 
+        #print("created HMAC")
         #Compare HMACS
         if hmac.compare_digest(HMAC1, HMAC2):
             #print("HMACS ARE UNTAMPERED")
