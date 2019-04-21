@@ -23,13 +23,19 @@ class AESCipher:
     Tested under Python 3 and PyCrypto 2.6.1.
     """
 
-    def __init__(self, key):
-        self.key = md5(key.encode('utf8')).hexdigest()
+    def __init__(self, enc_key, mac_key):
+        self.enc_key = md5(enc_key.encode('utf8')).hexdigest()
+        self.mac_key = md5(mac_key.encode('utf8')).digest()
 
-    def paddingError(ciphertext_string):
+
+    def paddingError(self, ciphertext_string):
         x = ciphertext_string[-1]
-        y = len(ciphertext_string)
-        while y > len(ciphertext_string) - x:
+        #print("pad: {}".format(x))
+        if x == 0:
+            return True
+
+        y = len(ciphertext_string) - 1
+        while y >= len(ciphertext_string) - x:
             if(ciphertext_string[y] == x):
                 y = y - 1
             else:
@@ -37,50 +43,63 @@ class AESCipher:
         return False
 
     def encrypt(self, raw):
-        raw = pad(raw)
         iv = Random.new().read(AES.block_size)
-        cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        cipherHMAC = hmac.new(self.key, raw, digestmod = md5)
-        raw2 = raw + cipherHMAC.digest()
-        return iv + cipher.encrypt(raw2)
+        cipher = AES.new(self.enc_key, AES.MODE_CBC, iv)
+        cipherHMAC = hmac.new(self.mac_key, raw.encode('utf-8'), digestmod = md5)
+        raw2 = raw + cipherHMAC.hexdigest()
+        print("plaintext with HMAC and Padding: {}".format(pad(raw2)))
+        return iv + cipher.encrypt(pad(raw2))
 
     def decrypt(self, enc):
         start = time.time()
         iv = enc[:16]
         dummy = enc[16:]
-        cipher = AES.new(self.key, AES.MODE_CBC, iv)
+        cipher = AES.new(self.enc_key, AES.MODE_CBC, iv)
+
+
 
         #decrypt the ciphertext
         d = cipher.decrypt(dummy)
+
+        #print(d)
         #check if a padding error occured, and print an error message if so.
-        if paddingError(d):
-            print("ERROR: PADDING ERROR OCCURED")
+        if self.paddingError(d) == True:
+            #print("ERROR: PADDING ERROR OCCURED")
             end = time.time()
-            print("Padding error time: " + end-start)
+            #print("Padding error time: {}".format(end-start))
             return -2
         #unpad the the decrypted ciphertext
+        
+        #print('here')
         unpadded = unpad(d)
+        #print(d)
+        #print(unpadded)
         #grab the HMAC appended to the end of it.
         HMAC1 = unpadded[-32:]
-        #find the length of the plaintext and separate the plaintex from the HMAC
+        #find the length of the plaintext and separate the plaintext from the HMAC
         length = len(unpadded)-32
         plaintext = unpadded[:length]
-        HMAC2 = hmac.new(self.key, plaintext, digestmod = md5)
+        HMAC2 = hmac.new(self.mac_key, plaintext, digestmod = md5).hexdigest().encode('utf-8')
+        #print("hmac1: {}".format(HMAC1))
+        #print("hmac2: {}".format(HMAC2))
         #Compare HMACS
         if hmac.compare_digest(HMAC1, HMAC2):
-            print("HMACS ARE UNTAMPERED")
-            return plaintext
+            #print("HMACS ARE UNTAMPERED")
+            return plaintext.decode('utf-8')
         else:
-            print("HMACS ARE COMPROMISED")
+            #print("HMACS ARE COMPROMISED")
             end = time.time()
-            print("HMAC error time: " + end-start)
+            #print("HMAC error time: {}".format( end-start))
             return -1
 
 
 ##
 # MAIN
 # Just a test.
-msg = input('Message...: ')
-pwd = input('Password..: ')
+if __name__ == "__main__":
+    msg = "rew" #input('Message...: ')
+    pwd = "rew" #input('Password..: ')
 
-print('Ciphertext:', AESCipher(pwd).encrypt(msg))
+    ciphertext = AESCipher(pwd, "klde").encrypt(msg)
+    print('Ciphertext:', ciphertext)
+    print('Ciphertext:', AESCipher(pwd, "klde").decrypt(ciphertext))
