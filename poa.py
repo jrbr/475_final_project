@@ -5,44 +5,52 @@ import statistics
 
 from base64 import b64decode
 from base64 import b64encode
+import random
 
 BLOCK_SIZE = 16  # Bytes
 
 cipher = decoder.AESCipher("enc_key", "mac_key")
+front_padding = b'x'* 4096
 
 class Oracle:
     def __init__(self, use_timing=False):
         self.use_timing = use_timing
-        self.time_threshold = .000024
         if use_timing:
             global cipher 
             cipher = decoder.AESCipher("enc_key", "mac_key", hide_errors=True)
 
+
+    #takes the given values to calculate the threshold for distinguishing paddding and mac errors
     def set_threshold(self, pad_time_mean, pad_time_stdev, mac_time_mean, mac_time_stdev):
         print("padding error mean time: {}".format(pad_time_mean))
         print("padding std dev: {}".format(pad_time_stdev))
         print("mac error mean time: {}".format(mac_time_mean))
         print("mac error std dev: {}".format(mac_time_stdev))
-        self.time_threshold = (mac_time_mean - 2 * mac_time_stdev + pad_time_mean + 2 * pad_time_stdev) / 2
+
+        #find midpoint stddev wise
+        self.time_threshold = (mac_time_mean - 2 * mac_time_stdev + pad_time_mean +  pad_time_stdev) / 2
+
         print(self.time_threshold)
         print("{} stdev above padding error mean".format((self.time_threshold - pad_time_mean) / pad_time_stdev)) 
         print("{} stdev below MAC error mean".format((mac_time_mean - self.time_threshold) / mac_time_stdev)) 
 
-    #oracle returns true on padding error
+    #Queries the encryption. Returns true if a padding erro has occurred, false otherwise
     def query(self, ciphertext_string):
         if self.use_timing:
             return self.timer_query(ciphertext_string)
         decrypted = cipher.decrypt(ciphertext_string)
         return decrypted == cipher.PaddingError
 
+    #helper function for if the attack requires timing information
     def timer_query(self, ciphertext_string):
+        length_increaser = getBytearray
         sum_time = 0
-        num_iterations = 500
+        num_iterations = 200
         sample =[]
         for i in range(0, num_iterations):
 
             start = time.time()
-            decrypted = cipher.decrypt(ciphertext_string)
+            decrypted = cipher.decrypt(front_padding + ciphertext_string)
             end = time.time()
             sample.append(end - start)
 
@@ -142,29 +150,36 @@ def modifyByte(ciphertext_bytearray, index, oracle):
 
 
 if __name__ ==  "__main__":
-    plaintext = "this is a much longer message. what are the chances that it doesn't mess up at all in this whole message?"
-    ciphertext = cipher.encrypt(plaintext)
 
-    #c = b'roX+Bm0JNAQO9/W7jlNPrquLPwGB451mmEMFb8Gq7Nax4UPT2WUD9H/EJbqotxhy60M/kbuuEfW3yahL9GCqOFNi0dQxouLfV+1sRgw4yw4-'
 
-    #print
-    print("plaintext: {} \nciphertext: {}".format(plaintext, ciphertext))
-
+    #Creates the oracl. Set use_timing to false to run a standard padding oracle attack
+    # set it to true to base the attack off erro message return times
     oracle = Oracle(use_timing=True)
 
+    #plaintext to encrypt and break
+    plaintext = """TO THE legion of the lost ones, to the cohort of the damned,
+To my brethren in their sorrow overseas,
+Sings a gentleman of England cleanly bred, machinely crammed,
+And a trooper of the Empress, if you please.
+Yea, a trooper of the forces who has run his own six horses,
+And faith he went the pace and went it blind"""
 
-    
+    #ciphertext. The rest of our program only sees this
+    ciphertext = cipher.encrypt(plaintext)
+
+    print("plaintext: {} \nciphertext: {}".format(plaintext, ciphertext))
+
+
+
+    #this next bit determines the timing thresholds for a timing attack
     ciphertext_bytearray =  getBytearray(ciphertext)#convert ciphertext to an array of bytes
     num_bytes = len(ciphertext_bytearray)
-
-    #ciphertext_bytearray[num_bytes - 16 -1 ] = 0 #modify ciphertext
-
 
     mac_times = []
     iters = 1000
     for i in range(0, iters):
         start = time.time()
-        decrypted = cipher.decrypt(bytes(ciphertext_bytearray))
+        decrypted = cipher.decrypt(front_padding+bytes(ciphertext_bytearray))
         end = time.time()
         mac_times.append(end - start)
 
@@ -175,17 +190,18 @@ if __name__ ==  "__main__":
     iters = 1000
     for i in range(0, iters):
         start = time.time()
-        decrypted = cipher.decrypt(bytes(ciphertext_bytearray))
+        decrypted = cipher.decrypt(front_padding+bytes(ciphertext_bytearray))
         end = time.time()
         pad_times.append(end - start)
-
-    print("sample size: {}".format(len(pad_times)))
-    
 
     oracle.set_threshold(statistics.mean(pad_times), statistics.stdev(pad_times),
                     statistics.mean(mac_times), statistics.stdev(mac_times))
     
+    
+    #Run the padding oracle attack
     poa_result = paddingOracleAttack(ciphertext, 16, oracle)[:-32]
     print("decoded result: {}".format(poa_result))
 
     print("Successful decoding: {}".format(plaintext == poa_result))
+    
+    

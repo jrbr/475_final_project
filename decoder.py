@@ -68,15 +68,19 @@ class AESCipher:
 
 
         #decrypt the ciphertext
-        d = cipher.decrypt(dummy)
+        
+
+        padding_check = cipher.decrypt(dummy[-BLOCK_SIZE * 2: ])
         #check if a padding error occured, and print an error message if so.
-        if self.paddingError(d) == True:
+        if self.paddingError(padding_check) == True:
             #print("ERROR: PADDING ERROR OCCURED")
             #print("Padding error time: {}".format(end-start))
             if self.hide_errors:
                 return self.GenError
             return self.PaddingError
         #unpad the the decrypted ciphertext
+
+        d = cipher.decrypt(dummy)
         
         unpadded = unpad(d)
 
