@@ -8,7 +8,7 @@ In this repository there are two python scripts.
 	and decrypts then authentices a given ciphertext. 
 
 	The decryption function has two modes:
-	1. standard: distinct messages are provided for padding error and <AC authentication erros
+	1. standard: distinct messages are provided for padding error and MAC authentication errors
 	2. hidden_errors: The same generic message is returned for both padding and MAC errors
 
 2. poa.py
