@@ -7,7 +7,7 @@ In this repository there are two python scripts.
 	This file contains our encryption/decryption scheme. It runs a Mac-then-encrypt CBC scheme on a given plaintext,
 	and decrypts then authentices a given ciphertext. 
 
-	The decrytption function has two modes:
+	The decryption function has two modes:
 	1. standard: distinct messages are provided for padding error and <AC authentication erros
 	2. hidden_errors: The same generic message is returned for both padding and MAC errors
 
